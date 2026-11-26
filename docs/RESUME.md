@@ -6,8 +6,8 @@
 |---|---|
 | Dữ liệu, render GT, execset (3DCodeData trên Blender 5.0) | ✅ xong |
 | Qwen3.5-4B, Qwen3.5-9B, Gemma 4 26B-A4B (zero-shot + chấm điểm) | ✅ xong → `results/phase0/results/summary.md` |
-| Qwen3.8-27B NariQ 3-bit (llama.cpp fork) | ⏳ đang chạy trên A100 lúc lưu checkpoint |
-| Gemma 4 12B, Gemma 4 31B-w4a16 | ⏳ xếp hàng sau 27B (tools/chain_extra.sh) |
+| Qwen3.8-27B NariQ 3-bit (llama.cpp fork) | ⏸ dừng ở 16/200 mẫu (đã sao lưu) — runtime đã trả lúc 06:57 |
+| Gemma 4 12B, Gemma 4 31B-w4a16 | ⏸ chưa chạy |
 
 Kết quả dở dang luôn được sao lưu về `results/phase0_sync/gen/*.jsonl` (mỗi ~10 phút);
 khi chạy lại, các mẫu đã có được tự bỏ qua.
