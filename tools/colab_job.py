@@ -37,7 +37,7 @@ SYNC_DIR = ROOT / "results" / "phase0_sync"  # bản sao kết quả dở dang (
 REMOTE = "/content/t2a"
 LOG = f"{REMOTE}/run.log"
 EVENT_RE = re.compile(r"\] STAGE |\] WARN |PHASE0_|MODEL_FAILED|Traceback|CUDA out of memory|\[gen\] \d+/\d+ |"
-                      r"\[execset\] \d+/|mẫu, |nạp model")
+                      r"\[execset\] \d+/|mẫu, |nạp model|PILOT_STATS|agent_wall_s|\[inkling_agent\]")
 
 
 class Runtime:
