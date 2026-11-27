@@ -84,8 +84,15 @@ if [ "$HAS_GPU" = 1 ]; then
   fi
   # shellcheck disable=SC2086
   run_model gemma4_26b --model google/gemma-4-26B-A4B-it $GQ --thinking off
-  run_model gemma4_12b --model google/gemma-4-12B-it --thinking off
-  run_model gemma4_31b_w4 --model google/gemma-4-31B-it-qat-w4a16-ct --thinking off --max-model-len 24576
+  # GPU nhỏ (L4 24 GB): 12B bf16 (~24 GB) không vừa -> FP8 (~13 GB); 31B-w4 (~19 GB) gần như không còn KV cache -> bỏ qua.
+  if [ "$GPU_MB" -ge 30000 ]; then G12=""; else G12="--quant fp8"; fi
+  # shellcheck disable=SC2086
+  run_model gemma4_12b --model google/gemma-4-12B-it $G12 --thinking off
+  if [ "$GPU_MB" -ge 30000 ]; then
+    run_model gemma4_31b_w4 --model google/gemma-4-31B-it-qat-w4a16-ct --thinking off --max-model-len 24576
+  elif [[ ",$MODELS," == *",gemma4_31b_w4,"* ]]; then
+    warn "MODEL_SKIPPED gemma4_31b_w4: GPU ${GPU_MB}MB < 30GB"
+  fi
 elif [ "$SMOKE" = 1 ]; then
   warn "không có GPU — SMOKE: dùng code GT làm 'model oracle' để kiểm tra pipeline chấm điểm"
   $PY - "$W" <<'EOF'

@@ -24,8 +24,9 @@ python -I tools/watch_gpu_api.py --list            # kiểm tra API/đăng nhậ
 python -I tools/colab_job.py fetch --runtime text2asset --dest results/phase0_sync   # nếu runtime còn
 python -I tools/watch_gpu_api.py --release --name text2asset
 
-# 2) Chạy phần còn thiếu trên runtime mới (tự xin A100/G4, tự khôi phục gen đã có, tự trả runtime khi xong):
-bash tools/supervise_phase0.sh >> supervise.log 2>&1        # MODELS mặc định gồm cả Gemma 12B/31B
+# 2) Chạy phần còn thiếu trên runtime mới (mặc định xin L4 — chưa train thì không dùng A100;
+#    tự khôi phục gen đã có, tự trả runtime khi xong). Trên L4: Gemma 12B chạy FP8, Gemma 31B bị bỏ qua.
+MODELS=gemma4_12b bash tools/supervise_phase0.sh >> supervise.log 2>&1
 #    27B NariQ cần script riêng (llama.cpp): sau khi có runtime ->
 python -I tools/colab_job.py start --runtime text2asset --script run_27b_nariq.sh
 #    (run_27b_nariq.sh tự tải llama.cpp fork + GGUF trên VM mới qua nari_setup.sh)
