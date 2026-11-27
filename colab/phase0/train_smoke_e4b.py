@@ -56,6 +56,8 @@ def main():
     p.add_argument("--alpha", type=int, default=32)
     p.add_argument("--lr", type=float, default=2e-4)
     p.add_argument("--remat", default="DECODER", help="NONE | BLOCK | DECODER")
+    p.add_argument("--batch", type=int, default=1, help="mẫu mỗi bước (v5e-8 với FSDP 8 chip: 8)")
+    p.add_argument("--mesh", default="1,1", help="kích thước (fsdp,tp), vd 1,1 cho v6e-1; 8,1 cho v5e-8")
     a = p.parse_args()
     os.makedirs(a.work, exist_ok=True)
     RES["args"] = vars(a)
@@ -118,7 +120,9 @@ def run(a):
     from tunix.sft import metrics_logger, peft_trainer
     from tunix.sft import utils as sft_utils
 
-    mesh = jax.make_mesh((1, 1), ("fsdp", "tp"), axis_types=(jax.sharding.AxisType.Auto,) * 2)
+    mesh_shape = tuple(int(x) for x in a.mesh.split(","))
+    mesh = jax.make_mesh(mesh_shape, ("fsdp", "tp"), axis_types=(jax.sharding.AxisType.Auto,) * 2)
+    RES["mesh"] = mesh_shape
     cfg = g4.ModelConfig.gemma4_e4b()
     cfg = dataclasses.replace(cfg, remat_config=getattr(g4cfg.RematConfig, a.remat))
     model = params_safetensors.create_model_from_safe_tensors(a.model_dir, cfg, mesh, dtype=jnp.bfloat16, text_only=False)
@@ -140,7 +144,7 @@ def run(a):
     tok = AutoTokenizer.from_pretrained(a.model_dir)
     proc = AutoProcessor.from_pretrained(a.model_dir)
     pad_id = tok.pad_token_id if tok.pad_token_id is not None else 0
-    batches, lens, skipped = [], [], 0
+    items, lens, skipped = [], [], 0
     for ex in examples:
         msgs = [{"role": "system", "content": sysp},
                 {"role": "user", "content": [{"type": "image"}] * 4 + [{"type": "text", "text": USER_PROMPT}]}]
@@ -152,20 +156,30 @@ def run(a):
         src = np.array(tok(prompt, add_special_tokens=False)["input_ids"], dtype=np.int32)
         dst = np.array(tok(full[len(prompt):], add_special_tokens=False)["input_ids"], dtype=np.int32)
         imgs = [Image.open(pth).convert("RGB") for pth in ex["images"]]
-        processed, toks = image_processor.process_gemma4_inputs([imgs], [src], model.vision_encoder, pad_id)
+        _, toks = image_processor.process_gemma4_inputs([imgs], [src], model.vision_encoder, pad_id)  # chỉ để đo độ dài
         src_x = np.asarray(toks[0], dtype=np.int32)
         L = len(src_x) + len(dst)
         lens.append(L)
         if L > a.max_seq:
             skipped += 1
             continue
-        ids = np.full((1, a.max_seq), pad_id, np.int32)
-        mask = np.zeros((1, a.max_seq), bool)
-        ids[0, :len(src_x)] = src_x
-        ids[0, len(src_x):L] = dst
-        mask[0, len(src_x):L] = True
+        items.append((imgs, src, dst))
+    batches = []
+    for b0 in range(0, len(items) - a.batch + 1, a.batch):  # gom a.batch mẫu, xử lý ảnh theo batch
+        grp = items[b0:b0 + a.batch]
+        processed, toks = image_processor.process_gemma4_inputs([g[0] for g in grp], [g[1] for g in grp],
+                                                                model.vision_encoder, pad_id)
+        ids = np.full((len(grp), a.max_seq), pad_id, np.int32)
+        mask = np.zeros((len(grp), a.max_seq), bool)
+        for j, (g, sx) in enumerate(zip(grp, toks)):
+            sx = np.asarray(sx, dtype=np.int32)
+            L = min(len(sx) + len(g[2]), a.max_seq)
+            ids[j, :len(sx)] = sx
+            ids[j, len(sx):L] = g[2][:L - len(sx)]
+            mask[j, len(sx):L] = True
         batches.append(peft_trainer.TrainingInput(input_tokens=ids, input_mask=mask, images=processed))
-    RES["seq_len"] = {"p50": int(np.median(lens)), "max": int(max(lens)), "n_fit": len(batches), "n_skipped": skipped,
+    RES["seq_len"] = {"p50": int(np.median(lens)), "max": int(max(lens)), "n_fit": len(items), "n_batches": len(batches),
+                      "n_skipped": skipped,
                       "prompt_tokens_example": int(len(src_x))}
     stage("tokenize", t)
     log(f"độ dài chuỗi: {RES['seq_len']}")
@@ -207,7 +221,7 @@ def run(a):
     RES["step_seconds"] = [round(float(g), 2) for g in gaps]
     if len(gaps) > 3:
         RES["sec_per_step_warm"] = round(float(np.median(gaps[2:])), 2)
-        RES["tokens_per_sec_warm"] = round(a.max_seq / max(RES["sec_per_step_warm"], 1e-6))
+        RES["tokens_per_sec_warm"] = round(a.batch * a.max_seq / max(RES["sec_per_step_warm"], 1e-6))
     stage("train", t)
     RES["train_seconds"] = round(dt, 1)
     RES["hbm_after_train"] = hbm()
