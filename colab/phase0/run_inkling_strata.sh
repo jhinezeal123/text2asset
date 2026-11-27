@@ -10,7 +10,7 @@ TAG=inkling2mini_sq20
 PAR=${PAR:-4}; CTX=${CTX:-40960}; EFFORT=${EFFORT:-high}; SETTINGS=${SETTINGS:-text,image}
 BL=/content/blender/blender
 PY=python3
-PORT=8080
+PORT=8090  # 8080 là cổng Jupyter của Colab
 export HF_HUB_DISABLE_PROGRESS_BARS=1 PYTHONUNBUFFERED=1 PATH="$HOME/.local/bin:$PATH"
 stage() { echo "[$(date '+%F %T')] STAGE $*"; }
 warn()  { echo "[$(date '+%F %T')] WARN $*"; }
