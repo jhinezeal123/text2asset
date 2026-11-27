@@ -5,6 +5,12 @@ PYRUN="python -I -X utf8"
 say() { echo "[$(date '+%F %T')] $*"; }
 rexec() { timeout 200 $PYRUN tools/colab_job.py --runtime text2asset exec "$1" 2>&1 | tail -3; }
 
+if [ ! -f .colab_runtime.json ]; then
+  say "PILOT_WAIT xin ${GPUS:-L4} mỗi ${INTERVAL:-10} phút, tối đa ${MAX_HOURS:-10} giờ"
+  $PYRUN tools/watch_gpu_api.py --gpu "${GPUS:-L4}" --interval "${INTERVAL:-10}" --max-hours "${MAX_HOURS:-10}" 2>&1 | grep -E "STATUS=(ACQUIRED|TIMEOUT|FATAL)"
+  [ -f .colab_runtime.json ] || { say "PILOT_STOP không xin được GPU"; exit 1; }
+  sleep 20
+fi
 powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='bash.exe'\" | Where-Object { \$_.CommandLine -match 'colab_job.py monitor|run_inkling.sh|restart_inkling.sh' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }"
 say "PILOT dừng job zero-shot, lưu mẫu"
 rexec "import subprocess; print(subprocess.run(\"pkill -f 'zeroshot_gen_llamacp[p]'; pkill -f 'run_inkling_strat[a]'; sleep 1; wc -l < /content/t2a/gen/inkling2mini_sq20.jsonl\", shell=True, capture_output=True, text=True).stdout)"
