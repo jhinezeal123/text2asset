@@ -35,6 +35,12 @@ if [ ! -x "$BL" ]; then
 fi
 "$BL" -b --factory-startup --version 2>/dev/null | head -1 || fail "Blender không chạy"
 $PY -m pip -q install huggingface_hub pillow scipy >/dev/null 2>&1 || warn "pip deps"
+# Một số script GT (vd CauliflowerCoral) import scipy bên trong Blender -> cài vào Python đi kèm Blender.
+BPY=$(ls /content/blender/*/python/bin/python3.* 2>/dev/null | grep -v config | head -1)
+if [ -n "$BPY" ] && ! "$BPY" -c "import scipy" 2>/dev/null; then
+  { "$BPY" -m ensurepip -q && "$BPY" -m pip -q install scipy; } >/dev/null 2>&1 || warn "không cài được scipy cho Blender"
+fi
+"$BPY" -c "import scipy; print('blender scipy', scipy.__version__)" || warn "Blender thiếu scipy"
 $PY -c "import torch, transformers" 2>/dev/null || $PY -m pip -q install torch transformers >/dev/null 2>&1 || warn "torch/transformers"
 
 stage "2 tải benchmark (chỉ các task cần)"

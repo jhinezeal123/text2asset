@@ -283,7 +283,8 @@ with tarfile.open({tgz!r}, 'w:gz') as tf:
 
 
 def cmd_fetch(rt: Runtime, a):
-    n = fetch_rels(rt, ["results", "gen", "run.log", "execset.log", "tasks.jsonl"], ROOT / a.dest)
+    rels = ["results", "gen", "run.log", "execset.log", "tasks.jsonl"] + (["render"] if a.with_render else [])
+    n = fetch_rels(rt, rels, ROOT / a.dest)
     print(f"FETCHED {n / 1e6:.1f} MB -> {ROOT / a.dest}")
 
 
@@ -297,6 +298,7 @@ def main():
     p.add_argument("--from-end", action="store_true", help="monitor: chỉ in dòng mới từ bây giờ")
     p.add_argument("--sync-every", type=float, default=600, help="monitor: giây giữa các lần sao lưu kết quả về máy")
     p.add_argument("--dest", default="results/phase0")
+    p.add_argument("--with-render", action="store_true", help="fetch: tải cả ảnh render + points (render/)")
     p.add_argument("--script", default="run_phase0.sh", help="start: script trong colab/phase0 để chạy")
     a = p.parse_args()
     rt = Runtime(a.runtime)
