@@ -106,10 +106,10 @@ def err_kind(e):
     return e.split(":")[0][:60]
 
 
-def make_sheet(w, rows, tags_groups, setting, out_png, n=8):
+def make_sheet(w, rows, tags_groups, setting, out_png, n=None):
     from PIL import Image, ImageDraw
     cell = 128
-    tasks = [t["id"] for t in jl(os.path.join(w, "tasks.jsonl"))][:n]
+    tasks = [t["id"] for t in jl(os.path.join(w, "tasks.jsonl"))][:n]  # n=None: tất cả task
     cols = [("GT", os.path.join(w, "render", "gt"))] + [
         (f"{tag}/{g.split('_')[1]}", os.path.join(w, "render", tag, g)) for tag, g in tags_groups if g.startswith(setting)]
     sheet = Image.new("RGB", (cell * len(cols), cell * len(tasks) + 20), "white")
