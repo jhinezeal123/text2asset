@@ -29,3 +29,4 @@ __pycache__/
 results/
 supervise.log
 inkling.log
+.kaggle_kernel/

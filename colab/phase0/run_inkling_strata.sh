@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Mốc 0 bổ sung: Inkling-2-Mini (bản .strata SQ-20, không mất mát) qua engine Strata, thinking BẬT, trên L4.
 # Strata tự offload: KV cache cấp phát trước trên GPU, expert nào không vừa VRAM thì để ở RAM (MoE 26.4B, 3.4B active).
-# Biến: PAR (số request song song, mặc định 4), CTX (ngữ cảnh mỗi slot, 40960), EFFORT (high), SETTINGS (text,image)
+# Biến: PAR (số request song song, mặc định 4), CTX (ngữ cảnh mỗi slot, 40960), EFFORT (high), SETTINGS (text,image),
+#       STRATA_SET (tham số engine, cách nhau bởi dấu cách, vd "vram-experts-gb=10 kv-offload=off")
 # Marker: STAGE / WARN / PHASE0_DONE / PHASE0_FAILED
 set -uo pipefail
 CODE="$(cd "$(dirname "$0")" && pwd)"
@@ -52,14 +53,17 @@ if ! command -v strata >/dev/null; then
     && sh /tmp/strata_install.sh || fail "cài Strata"
 fi
 strata launch --plan --family inkling-2-mini --model SQ-20 --context "$CTX" --parallel "$PAR" --vision on 2>&1 | tail -15
+SETS=(); for kv in ${STRATA_SET:-}; do SETS+=(--set "$kv"); done
+echo "engine set: ${STRATA_SET:-(mặc định)}"
 strata launch --family inkling-2-mini --model SQ-20 --context "$CTX" --parallel "$PAR" --vision on \
-  --port "$PORT" --no-api-key --yes --no-tui > /content/strata_launch.log 2>&1 \
+  --port "$PORT" --no-api-key --yes --no-tui --restart "${SETS[@]}" > /content/strata_launch.log 2>&1 \
   || { tail -30 /content/strata_launch.log; fail "strata launch"; }
 tail -8 /content/strata_launch.log
 for i in $(seq 1 120); do curl -sf "http://127.0.0.1:$PORT/v1/models" >/dev/null && break; sleep 10; done
 MID=$(curl -sf "http://127.0.0.1:$PORT/v1/models" | $PY -c "import json,sys; print(json.load(sys.stdin)['data'][0]['id'])") \
   || fail "server Strata không trả lời"
 strata launch --status 2>&1 | tail -12
+grep -E "Loaded|Host KV|memory:|prefill chunk|hyb|promo" "$HOME"/.local/state/strata/launch/*.engine.log | tail -6
 nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader
 echo "model id: $MID"
 

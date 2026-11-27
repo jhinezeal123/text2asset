@@ -13,7 +13,7 @@ $PYRUN tools/watch_gpu_api.py --list >/dev/null 2>&1
 say "INKLING_ACQUIRED"
 
 for i in 1 2 3 4; do
-  out=$($PYRUN tools/colab_job.py start --runtime text2asset --script run_inkling_strata.sh 2>&1 | tail -1)
+  out=$($PYRUN tools/colab_job.py start --runtime text2asset --script run_inkling_strata.sh ${STRATA_SET:+--env "STRATA_SET=$STRATA_SET"} 2>&1 | tail -1)
   echo "$out" | grep -q JOB_STARTED && { say "INKLING_JOB_STARTED"; break; }
   say "start lỗi (lần $i): ${out:0:200}"; sleep 60
 done
