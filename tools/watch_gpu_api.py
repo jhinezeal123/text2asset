@@ -82,8 +82,9 @@ def list_specs(s: AuthorizedSession) -> list[dict]:
 
 def pick_spec(specs: list[dict], gpu: str, high_mem: bool) -> dict:
     want_shape = "SHAPE_HIGHMEM" if high_mem else "SHAPE_STANDARD"
+    variant = "VARIANT_CPU" if gpu.upper() == "NONE" else "VARIANT_GPU"  # --gpu CPU -> runtime chỉ CPU
     matches = [sp for sp in specs
-               if sp.get("key", {}).get("variant") == "VARIANT_GPU"
+               if sp.get("key", {}).get("variant") == variant
                and sp.get("key", {}).get("accelerator", "").upper() == gpu.upper()]
     if not matches:
         raise Fatal(f"Không có cấu hình GPU '{gpu}'. Dùng --list để xem các lựa chọn.")
@@ -144,7 +145,8 @@ def parse_candidates(gpu_arg: str, default_hm: bool) -> list[tuple[str, bool]]:
     for item in gpu_arg.split(","):
         name, _, shape = item.strip().partition(":")
         hm = default_hm if not shape else shape.lower() in ("hm", "highmem", "high-mem")
-        out.append((name.upper(), hm))
+        name = name.upper()
+        out.append(("NONE" if name == "CPU" else name, hm))
     return out
 
 

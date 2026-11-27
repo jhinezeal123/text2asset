@@ -34,6 +34,8 @@ def prep_bench(a, api):
     cats = sorted(e.path.split("/")[-1] for e in api.list_repo_tree(REPO, path_in_repo="3DCodeBench", repo_type="dataset")
                   if e.path.count("/") == 1)
     chosen = sorted(random.Random(0).sample(cats, min(a.n_tasks, len(cats))))
+    if a.only:  # chỉ tải/ghi các task cần (vd chấm lại một phần) — vẫn giữ đúng tập chọn theo seed 0
+        chosen = [c for c in chosen if c in set(a.only.split(","))]
     print(f"benchmark: {len(cats)} loại, chọn {len(chosen)}", flush=True)
 
     patterns = []
@@ -111,10 +113,13 @@ def main():
     p.add_argument("--n-exec", type=int, default=300)
     p.add_argument("--n-tok", type=int, default=2000)
     p.add_argument("--tokenizer", default="Qwen/Qwen3.5-9B")
+    p.add_argument("--only", default="", help="danh sách task id (phẩy) — chỉ chuẩn bị các task này")
+    p.add_argument("--bench-only", action="store_true", help="bỏ qua 3DCodeData (execset, token stats)")
     a = p.parse_args()
     from huggingface_hub import HfApi
     prep_bench(a, HfApi())
-    prep_corpus(a)
+    if not a.bench_only:
+        prep_corpus(a)
 
 
 if __name__ == "__main__":
