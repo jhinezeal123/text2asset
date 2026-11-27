@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Xin TPU v6e-1 trên Colab -> chạy run_train_smoke.sh (LoRA Gemma 4 E4B) -> tải kết quả -> trả runtime.
+# Xin Colab theo ưu tiên TPU v6e-1 -> A100 (ACC=...) -> chạy run_train_smoke.sh (LoRA Gemma 4 E4B) -> tải kết quả -> trả runtime.
 cd "$(dirname "$0")/.." || exit 1
 PYRUN="python -I -X utf8"
 say() { echo "[$(date '+%F %T')] $*"; }
 if [ ! -f .colab_runtime.json ]; then
-  say "SMOKE_WAIT xin ${ACC:-V6E1} mỗi ${INTERVAL:-10} phút, tối đa ${MAX_HOURS:-10} giờ"
-  $PYRUN tools/watch_gpu_api.py --gpu "${ACC:-V6E1}" --interval "${INTERVAL:-10}" --max-hours "${MAX_HOURS:-10}" 2>&1 \
+  say "SMOKE_WAIT xin ${ACC:-V6E1,A100} mỗi ${INTERVAL:-10} phút, tối đa ${MAX_HOURS:-10} giờ"
+  $PYRUN tools/watch_gpu_api.py --gpu "${ACC:-V6E1,A100}" --interval "${INTERVAL:-10}" --max-hours "${MAX_HOURS:-10}" 2>&1 \
     | grep -E "STATUS=(ACQUIRED|TIMEOUT|FATAL)|Bỏ qua|Không có"
-  [ -f .colab_runtime.json ] || { say "SMOKE_STOP không xin được TPU"; exit 1; }
+  [ -f .colab_runtime.json ] || { say "SMOKE_STOP không xin được máy"; exit 1; }
   sleep 20
 fi
 for i in 1 2 3 4; do

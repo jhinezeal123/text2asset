@@ -1,4 +1,4 @@
-"""Chạy thử LoRA Gemma 4 E4B (ảnh + chữ -> code Blender) bằng Tunix trên 1 chip TPU (v6e-1).
+"""Chạy thử LoRA Gemma 4 E4B (ảnh + chữ -> code Blender) bằng Tunix trên 1 chip TPU (v6e-1) hoặc 1 GPU (A100).
 
 python train_smoke_e4b.py --work /content/t2a_train --n-examples 48 --steps 20 --max-seq 8192
 Mục tiêu: xác nhận nạp được model + LoRA + ảnh, đo bộ nhớ HBM, thời gian mỗi bước, loss trước/sau. Ghi smoke_result.json.

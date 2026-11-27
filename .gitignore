@@ -36,3 +36,4 @@ pilot.log
 smoke.log
 .kaggle_kernel_smoke/
 kaggle_smoke.log
+.kaggle_kernel_probe/
