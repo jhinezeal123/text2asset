@@ -223,7 +223,7 @@ def cmd_monitor(rt: Runtime, a):
     last_sync = 0.0
     while True:
         try:
-            if time.time() - last_sync > a.sync_every:
+            if a.sync_every > 0 and time.time() - last_sync > a.sync_every:  # 0 = tắt sao lưu
                 # Sao lưu kết quả dở dang về máy: runtime Colab có thể bị thu hồi bất cứ lúc nào.
                 try:
                     fetch_rels(rt, ["gen", "results", "run.log", "execset.log"], SYNC_DIR)
@@ -296,7 +296,7 @@ def main():
     p.add_argument("--env", nargs="*", default=[])
     p.add_argument("--interval", type=float, default=120)
     p.add_argument("--from-end", action="store_true", help="monitor: chỉ in dòng mới từ bây giờ")
-    p.add_argument("--sync-every", type=float, default=600, help="monitor: giây giữa các lần sao lưu kết quả về máy")
+    p.add_argument("--sync-every", type=float, default=600, help="monitor: giây giữa các lần sao lưu kết quả về máy (0 = tắt)")
     p.add_argument("--dest", default="results/phase0")
     p.add_argument("--with-render", action="store_true", help="fetch: tải cả ảnh render + points (render/)")
     p.add_argument("--script", default="run_phase0.sh", help="start: script trong colab/phase0 để chạy")

@@ -52,9 +52,13 @@ def start_server(a, parallel):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--server", required=True)
-    p.add_argument("--model", required=True)
-    p.add_argument("--mmproj", required=True)
+    p.add_argument("--server", default="", help="llama-server (bỏ trống khi dùng --base-url)")
+    p.add_argument("--model", required=True, help="file GGUF, hoặc tên model khi dùng --base-url")
+    p.add_argument("--mmproj", default="")
+    p.add_argument("--base-url", default="", help="server OpenAI-compatible có sẵn (vd Strata), không tự khởi động")
+    p.add_argument("--api-key", default="")
+    p.add_argument("--extra-body", default="", help='JSON gộp vào mỗi request, vd {"reasoning_effort":"high"}')
+    p.add_argument("--no-template-kwargs", action="store_true", help="không gửi chat_template_kwargs.enable_thinking")
     p.add_argument("--tag", required=True)
     p.add_argument("--work", default="/content/t2a")
     p.add_argument("--settings", default="text,image")
@@ -79,17 +83,23 @@ def main():
             done.add((r["task"], r["setting"], r["thinking"]))
 
     proc, parallel = None, 0
-    for n in [int(x) for x in a.parallel.split(",")]:
+    extra = json.loads(a.extra_body) if a.extra_body else {}
+    headers = {"Authorization": f"Bearer {a.api_key}"} if a.api_key else {}
+    if a.base_url:  # server ngoài đã chạy sẵn
+        parallel = int(a.parallel.split(",")[0])
+        url = a.base_url.rstrip("/") + "/chat/completions"
+    for n in ([] if a.base_url else [int(x) for x in a.parallel.split(",")]):
         proc = start_server(a, n)
         if proc:
             parallel = n
             break
         print(f"[{a.tag}] llama-server không lên với {n} slot, thử ít hơn", flush=True)
-    if not proc:
+    if not proc and not a.base_url:
         sys.exit(f"[{a.tag}] không khởi động được llama-server (xem llama_server_{a.tag}.log)")
+    if not a.base_url:
+        url = f"http://127.0.0.1:{a.port}/v1/chat/completions"
 
     lock = threading.Lock()
-    url = f"http://127.0.0.1:{a.port}/v1/chat/completions"
 
     def one(t, setting, thinking):
         on = thinking == "on"
@@ -101,8 +111,10 @@ def main():
         body = {"messages": [{"role": "system", "content": sysp[setting]}, {"role": "user", "content": content}],
                 "temperature": 0.7, "top_p": 0.95 if on else 0.8, "top_k": 20, "seed": 0,
                 "max_tokens": a.max_tokens_on if on else a.max_tokens_off,
-                "chat_template_kwargs": {"enable_thinking": on}}
-        r = requests.post(url, json=body, timeout=7200)
+                **({} if a.no_template_kwargs else {"chat_template_kwargs": {"enable_thinking": on}}), **extra}
+        if a.base_url:
+            body["model"] = a.model
+        r = requests.post(url, json=body, headers=headers, timeout=7200)
         r.raise_for_status()
         j = r.json()
         ch = j["choices"][0]
@@ -126,17 +138,21 @@ def main():
                 t1, ntok, nerr = time.time(), 0, 0
                 with ThreadPoolExecutor(parallel) as ex:
                     futs = [ex.submit(one, t, setting, thinking) for t in todo]
-                    for f in as_completed(futs):
+                    for k, f in enumerate(as_completed(futs), 1):
                         try:
                             ntok += f.result()
                         except Exception as e:
                             nerr += 1
                             print(f"[{a.tag}] lỗi request: {type(e).__name__}: {str(e)[:200]}", flush=True)
+                        if k % 5 == 0 or k == len(futs):  # tiến độ (monitor bắt dạng "[gen] k/N ")
+                            print(f"[gen] {k}/{len(futs)} {setting}/thinking={thinking} "
+                                  f"{ntok / max(time.time() - t1, 1):.0f} tok/s, {nerr} lỗi", flush=True)
                 dt = time.time() - t1
                 print(f"[{a.tag}] {setting}/thinking={thinking}: {len(todo) - nerr} mẫu, {dt:.0f}s, "
                       f"{ntok / max(dt, 1):.0f} tok/s" + (f", {nerr} lỗi" if nerr else ""), flush=True)
     finally:
-        proc.terminate()
+        if proc:
+            proc.terminate()
 
 
 if __name__ == "__main__":
