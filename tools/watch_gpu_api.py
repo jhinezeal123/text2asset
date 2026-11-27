@@ -82,7 +82,8 @@ def list_specs(s: AuthorizedSession) -> list[dict]:
 
 def pick_spec(specs: list[dict], gpu: str, high_mem: bool) -> dict:
     want_shape = "SHAPE_HIGHMEM" if high_mem else "SHAPE_STANDARD"
-    variant = "VARIANT_CPU" if gpu.upper() == "NONE" else "VARIANT_GPU"  # --gpu CPU -> runtime chỉ CPU
+    g = gpu.upper()  # --gpu CPU -> runtime chỉ CPU; V5E1 / V6E1 -> TPU
+    variant = "VARIANT_CPU" if g == "NONE" else "VARIANT_TPU" if g.startswith(("V5E", "V6E", "V5P")) else "VARIANT_GPU"
     matches = [sp for sp in specs
                if sp.get("key", {}).get("variant") == variant
                and sp.get("key", {}).get("accelerator", "").upper() == gpu.upper()]
