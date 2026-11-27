@@ -30,3 +30,5 @@ results/
 supervise.log
 inkling.log
 .kaggle_kernel/
+.kaggle_kernel_pilot/
+kaggle_pilot.log
